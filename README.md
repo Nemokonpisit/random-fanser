@@ -20,4 +20,6 @@ node server.js
 
 ## Deploy บน Netlify
 
-โปรเจกต์มี `netlify.toml` และ Netlify Function พร้อมแล้ว โดยใช้ Netlify Blobs เก็บข้อมูลห้องและใช้ polling อัปเดตชื่อข้ามมือถือ ให้ตั้ง Build command เป็น `npm install` และ Publish directory เป็น `public` จากนั้น deploy ทั้ง repository (ไม่ใช่เฉพาะโฟลเดอร์ `public`)
+โปรเจกต์มี `netlify.toml` และ Netlify Function พร้อมแล้ว โดยใช้ Netlify Blobs เก็บข้อมูลห้องและใช้ polling อัปเดตชื่อข้ามมือถือ
+
+สำคัญ: ต้อง deploy จากโฟลเดอร์หลักของ repository นี้ (ไม่ใช่ลากเฉพาะโฟลเดอร์ `public`) เพื่อให้ Netlify เห็นทั้ง `netlify/functions` และ `netlify.toml` โดยตั้งค่าเป็น `Publish directory = public`, `Functions directory = netlify/functions` และใช้ Build command ตาม `netlify.toml` (`npm ci`) หากหน้าเว็บแจ้งว่าไม่พบ API ให้ตรวจสอบจุดนี้ก่อน

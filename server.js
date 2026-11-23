@@ -104,8 +104,9 @@ async function handleApi(req, res, pathname) {
   if (req.method === 'POST' && pathname === '/api/rooms') {
     try {
       const body = await readBody(req);
-      const minutes = Math.max(1, Math.min(180, Number(body.minutes) || 0));
-      if (!minutes) return json(res, 400, { error: 'กรุณากรอกเวลาอย่างน้อย 1 นาที' });
+      const requestedMinutes = Number(body.minutes);
+      if (!Number.isFinite(requestedMinutes) || requestedMinutes < 1) return json(res, 400, { error: 'กรุณากรอกเวลาอย่างน้อย 1 นาที' });
+      const minutes = Math.min(180, requestedMinutes);
       const id = crypto.randomBytes(4).toString('hex');
       const now = Date.now();
       const room = {

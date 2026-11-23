@@ -1,12 +1,13 @@
 (() => {
   const app = document.getElementById('app');
-  const state = { room: null, joinUrl: '', source: null, polling: null, countdown: null, token: null, submitted: false };
+  const state = { room: null, joinUrl: '', source: null, polling: null, countdown: null, token: null, submitted: false, announcementWinner: '' };
   const params = new URLSearchParams(location.search);
   const joinId = params.get('join');
 
   const icons = {
     ticket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v3a3 3 0 0 0 0 6v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a3 3 0 0 0 0-6V6a2 2 0 0 1 2-2Z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>',
-    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>'
+    copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></svg>',
+    spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z"/><path d="m19 15 .7 2.3L22 18l-2.3.7L19 21l-.7-2.3L16 18l2.3-.7L19 15Z"/></svg>'
   };
 
   const escapeHtml = value => String(value).replace(/[&<>'"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
@@ -20,10 +21,50 @@
   const statusText = status => ({ open: 'กำลังรับชื่อ', closed: 'ปิดรับชื่อแล้ว', drawn: 'ได้ผู้โชคดีแล้ว' }[status] || 'กำลังโหลด');
   const statusClass = status => status === 'drawn' ? 'drawn' : status === 'closed' ? 'closed' : '';
 
+  function showWinnerAnnouncement(name, audience) {
+    document.querySelector('.winner-modal-backdrop')?.remove();
+    const message = audience === 'host' ? 'ปิดรับชื่อและสุ่มเรียบร้อยแล้ว' : 'ผลประกาศจาก host มาแล้ว';
+    const previousFocus = document.activeElement;
+    const modal = document.createElement('div');
+    modal.className = 'winner-modal-backdrop';
+    modal.innerHTML = `<section class="winner-modal" role="dialog" aria-modal="true" aria-labelledby="winnerAnnouncementTitle" aria-describedby="winnerAnnouncementDescription">
+      <div class="winner-modal-mark">${icons.spark}</div>
+      <p class="winner-modal-kicker">ประกาศผลรอบนี้</p>
+      <h2 id="winnerAnnouncementTitle">ผู้โชคดีมาแล้ว!</h2>
+      <p id="winnerAnnouncementDescription" class="winner-modal-description">${message}</p>
+      <div class="winner-modal-name">${escapeHtml(name)}</div>
+      <button type="button" class="primary-button full winner-modal-close">ปิดประกาศ</button>
+    </section>`;
+    document.body.appendChild(modal);
+    const closeButton = modal.querySelector('.winner-modal-close');
+    const close = () => {
+      modal.remove();
+      document.removeEventListener('keydown', onKeyDown);
+      if (previousFocus && typeof previousFocus.focus === 'function' && document.contains(previousFocus)) previousFocus.focus({ preventScroll: true });
+    };
+    const onKeyDown = event => { if (event.key === 'Escape') close(); };
+    closeButton.addEventListener('click', close);
+    modal.addEventListener('click', event => { if (event.target === modal) close(); });
+    document.addEventListener('keydown', onKeyDown);
+    closeButton.focus({ preventScroll: true });
+  }
+
   async function request(url, options = {}) {
-    const response = await fetch(url, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'เชื่อมต่อไม่สำเร็จ');
+    let response;
+    try {
+      response = await fetch(url, { headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }, ...options });
+    } catch {
+      throw new Error('เชื่อมต่อระบบสุ่มไม่ได้ กรุณาตรวจสอบว่า deploy ทั้ง repository แล้วลองรีเฟรช');
+    }
+    const contentType = response.headers.get('content-type') || '';
+    const data = contentType.includes('application/json') ? await response.json().catch(() => ({})) : {};
+    if (!response.ok) {
+      if (data.code === 'BLOBS_NOT_CONFIGURED') {
+        throw new Error('ระบบเก็บข้อมูลยังไม่พร้อม กรุณา deploy ทั้ง repository ที่มีโฟลเดอร์ netlify/functions');
+      }
+      if (response.status === 404) throw new Error('ไม่พบ API ของเว็บ กรุณา deploy จากโฟลเดอร์หลักของโปรเจกต์ ไม่ใช่เฉพาะ public');
+      throw new Error(data.error || 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่');
+    }
     return data;
   }
 
@@ -91,6 +132,10 @@
     document.getElementById('copy').addEventListener('click', copyJoinUrl);
     if (room.status === 'open') document.getElementById('close').addEventListener('click', closeRound);
     if (room.status === 'closed') document.getElementById('draw').addEventListener('click', drawWinner);
+    if (isDrawn && room.winner && state.announcementWinner !== room.winner.name) {
+      state.announcementWinner = room.winner.name;
+      showWinnerAnnouncement(room.winner.name, 'host');
+    }
   }
 
   function drawQr() {
@@ -151,6 +196,10 @@
     app.innerHTML = shell(`${topbar(`รอบ ${room.id.toUpperCase()}`)}<section class="paper guest-paper"><div class="guest-main"><span class="status ${statusClass(room.status)}">${statusText(room.status)}</span><h1 style="margin-top:18px">ร่วมลุ้นไปด้วยกัน</h1><p>กรอกชื่อสั้น ๆ หนึ่งครั้ง แล้วรอดูผลสุ่มจาก host</p><div class="guest-timer"><span class="timer-label">เวลาที่เหลือ</span><strong id="guestTimer">--:--</strong></div>${body}<p class="footer-note">หนึ่งเครื่องส่งชื่อได้หนึ่งครั้งต่อรอบ</p></div></section>`, 'guest-page');
     startGuestCountdown();
     const form = document.getElementById('nameForm'); if (form) form.addEventListener('submit', submitName);
+    if (room.status === 'drawn' && room.winner && state.announcementWinner !== room.winner.name) {
+      state.announcementWinner = room.winner.name;
+      showWinnerAnnouncement(room.winner.name, 'guest');
+    }
   }
 
   function startGuestCountdown() { clearInterval(state.countdown); const tick = () => { const timer = document.getElementById('guestTimer'); if (timer) timer.textContent = formatTime(state.room.endsAt - Date.now()); }; tick(); state.countdown = setInterval(tick, 250); }
