@@ -1,6 +1,6 @@
 (() => {
   const app = document.getElementById('app');
-  const state = { room: null, joinUrl: '', source: null, countdown: null, token: null, submitted: false };
+  const state = { room: null, joinUrl: '', source: null, polling: null, countdown: null, token: null, submitted: false };
   const params = new URLSearchParams(location.search);
   const joinId = params.get('join');
 
@@ -117,12 +117,18 @@
   function connectStream() {
     stopStream();
     if (!state.room) return;
-    state.source = new EventSource(`/api/rooms/${state.room.id}/events`);
-    state.source.addEventListener('room', event => { state.room = JSON.parse(event.data); if (state.room.status !== 'open' || state.room.winner) renderHost(); else { renderParticipants(); startCountdown(); } });
-    state.source.onerror = () => {};
+    const sync = async () => {
+      try {
+        const data = await request(`/api/rooms/${state.room.id}`), next = data.room;
+        const changed = JSON.stringify(next) !== JSON.stringify(state.room);
+        state.room = next;
+        if (changed) { if (state.room.status !== 'open' || state.room.winner) renderHost(); else { renderParticipants(); startCountdown(); } }
+      } catch {}
+    };
+    sync(); state.polling = setInterval(sync, 1500);
   }
 
-  function stopStream() { if (state.source) { state.source.close(); state.source = null; } clearInterval(state.countdown); }
+  function stopStream() { if (state.source) { state.source.close(); state.source = null; } if (state.polling) { clearInterval(state.polling); state.polling = null; } clearInterval(state.countdown); }
   async function closeRound() { const button = document.getElementById('close'); if (!button || !state.room) return; if (!confirm('ปิดรับชื่อรอบนี้เลยไหม? หลังจากปิดแล้วจะเพิ่มชื่อไม่ได้')) return; button.disabled = true; try { const data = await request(`/api/rooms/${state.room.id}/close`, { method: 'POST' }); state.room = data.room; renderHost(); } catch (error) { toast(error.message); button.disabled = false; } }
   async function drawWinner() { const button = document.getElementById('draw'); if (!button || !state.room) return; button.disabled = true; button.textContent = 'กำลังสุ่ม…'; try { const data = await request(`/api/rooms/${state.room.id}/draw`, { method: 'POST' }); state.room = data.room; renderHost(); } catch (error) { toast(error.message); button.disabled = false; button.textContent = 'สุ่มผู้โชคดี 1 คน'; } }
   async function copyJoinUrl() { try { await navigator.clipboard.writeText(state.joinUrl); toast('คัดลอกลิงก์แล้ว'); } catch { toast('คัดลอกไม่ได้ ลองกดค้างที่ลิงก์'); } }
@@ -148,7 +154,7 @@
   }
 
   function startGuestCountdown() { clearInterval(state.countdown); const tick = () => { const timer = document.getElementById('guestTimer'); if (timer) timer.textContent = formatTime(state.room.endsAt - Date.now()); }; tick(); state.countdown = setInterval(tick, 250); }
-  function connectGuestStream() { stopStream(); state.source = new EventSource(`/api/rooms/${joinId}/events`); state.source.addEventListener('room', event => { state.room = JSON.parse(event.data); renderGuestView(); }); }
+  function connectGuestStream() { stopStream(); const sync = async () => { try { const data = await request(`/api/rooms/${joinId}`), next = data.room; if (JSON.stringify(next) !== JSON.stringify(state.room)) { state.room = next; renderGuestView(); } } catch {} }; sync(); state.polling = setInterval(sync, 1500); }
   async function submitName(event) { event.preventDefault(); const input = document.getElementById('name'); const message = document.getElementById('message'); const button = event.submitter; const name = input.value.trim(); if (!name) return; button.disabled = true; button.textContent = 'กำลังส่ง…'; try { await request(`/api/rooms/${joinId}/participants`, { method: 'POST', body: JSON.stringify({ name, token: state.token }) }); localStorage.setItem(`lucky-draw:${joinId}`, state.token); localStorage.setItem(`lucky-draw:${joinId}:submitted`, 'yes'); state.submitted = true; renderGuestView(); } catch (error) { message.textContent = error.message; button.disabled = false; button.textContent = 'ส่งชื่อเข้าร่วม'; } }
   function toast(message) { const existing = document.querySelector('.toast'); existing?.remove(); const node = document.createElement('div'); node.className = 'toast'; node.textContent = message; document.body.appendChild(node); setTimeout(() => node.remove(), 2600); }
 

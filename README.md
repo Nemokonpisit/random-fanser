@@ -17,3 +17,7 @@ node server.js
 - ข้อมูลรอบเก็บในหน่วยความจำของ server และจะหายเมื่อปิด server
 - ผู้ร่วมกิจกรรมแต่ละเครื่องส่งชื่อได้หนึ่งครั้งต่อรอบ
 - ตัวสร้าง QR โหลดจาก CDN ตอนเปิดหน้าเว็บ หากหน้างานไม่มีอินเทอร์เน็ต ให้ดาวน์โหลด `qrcode.min.js` มาไว้ใน `public/vendor/` แล้วเปลี่ยน script ใน `public/index.html` เป็นไฟล์ local
+
+## Deploy บน Netlify
+
+โปรเจกต์มี `netlify.toml` และ Netlify Function พร้อมแล้ว โดยใช้ Netlify Blobs เก็บข้อมูลห้องและใช้ polling อัปเดตชื่อข้ามมือถือ ให้ตั้ง Build command เป็น `npm install` และ Publish directory เป็น `public` จากนั้น deploy ทั้ง repository (ไม่ใช่เฉพาะโฟลเดอร์ `public`)
