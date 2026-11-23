@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "world": "inked event card",
+  "mode": "operate",
+  "tokens": {
+    "paper": "#fffdf9",
+    "paperDeep": "#e4eaf2",
+    "ink": "#10233f",
+    "inkSoft": "#526178",
+    "blue": "#2057c8",
+    "orange": "#f15a3b",
+    "yellow": "#f7c94b",
+    "line": "#cbd3df",
+    "success": "#187a61",
+    "radiusCard": "18px",
+    "radiusButton": "12px",
+    "shadowPaper": "0 16px 42px rgba(16, 35, 63, .12)"
+  },
+  "type": {
+    "family": "Noto Sans Thai, Tahoma, sans-serif",
+    "displayWeight": 900,
+    "bodyWeight": 500,
+    "numericFeature": "tabular-nums"
+  },
+  "interaction": {
+    "signature": "live countdown with a QR round card and a winner reveal",
+    "motion": "short lift and ink-stamp reveal; no content hidden by animation"
+  }
+}

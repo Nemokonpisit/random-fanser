@@ -1,0 +1,9 @@
+{
+  "name": "lucky-draw-qr",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A repeatable QR name draw for event hosts",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
