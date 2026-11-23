@@ -1,7 +1,6 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import { getStore } from '@netlify/blobs';
 
-let storePromise;
 let localStore;
 
 function clone(value) {
@@ -23,22 +22,22 @@ function createLocalStore() {
 }
 
 async function getRoomStore() {
-  if (!storePromise) {
-    storePromise = Promise.resolve().then(() => {
-      const hasManualCredentials = process.env.NETLIFY_SITE_ID && process.env.NETLIFY_AUTH_TOKEN;
+  const hasManualCredentials = process.env.NETLIFY_SITE_ID && process.env.NETLIFY_AUTH_TOKEN;
 
-      if (process.env.LUCKY_DRAW_LOCAL_STORE === 'true' && !process.env.NETLIFY_BLOBS_CONTEXT && !hasManualCredentials) {
-        localStore ||= createLocalStore();
-        return localStore;
-      }
-
-      return getStore({ name: 'lucky-draw-rooms', consistency: 'strong' });
-    }).catch(error => {
-      storePromise = null;
-      throw error;
-    });
+  if (process.env.LUCKY_DRAW_LOCAL_STORE === 'true' && !process.env.NETLIFY_BLOBS_CONTEXT && !hasManualCredentials) {
+    localStore ||= createLocalStore();
+    return localStore;
   }
-  return storePromise;
+
+  // Do not cache the production store client between invocations. Netlify
+  // refreshes the Blobs context token per request; a cached client can keep
+  // using an expired token after a warm function instance lives for a while.
+  const options = { name: 'lucky-draw-rooms', consistency: 'strong' };
+  if (hasManualCredentials) {
+    options.siteID = process.env.NETLIFY_SITE_ID;
+    options.token = process.env.NETLIFY_AUTH_TOKEN;
+  }
+  return getStore(options);
 }
 
 function response(statusCode, payload) {
